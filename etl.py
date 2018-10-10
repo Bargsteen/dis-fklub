@@ -1,3 +1,12 @@
+# Assumptions #
+#   Files: 
+#     - csv files are located relative to this file: /fklubdw/FKlubSourceData/*.csv
+#   Database: 
+#     - Name is 'dis'
+#     - No user/pass
+#     - Has the necessary schemas. (not necessary if the database cleanup section is finished)
+#       - Run 'psql dis < cleanAndCreate.sql' in the terminal while postgres is runnning.
+
 import pygrametl
 from pygrametl.datasources import CSVSource, MergeJoiningSource, TypedCSVSource
 from pygrametl.tables import CachedDimension, SlowlyChangingDimension, FactTable
