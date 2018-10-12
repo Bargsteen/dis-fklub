@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 # Assumptions #
 #   Files: 
 #     - csv files are located relative to this file: /fklubdw/FKlubSourceData/*.csv
@@ -18,7 +19,7 @@ import time
 import csv
 
 ### Connection ###
-pgconn = psycopg2.connect(database="dis", port=5432, user="postgres")
+pgconn = psycopg2.connect(database="dis", port=5432, user="postgres", host="localhost")
 connection = pygrametl.ConnectionWrapper(pgconn)
 connection.setasdefault()
 connection.execute('set search_path to pygrametlexa')
@@ -75,8 +76,7 @@ payment_source = TypedCSVSource(payment_file_handle,
                                 {'id': int, 'member_id': int,
                                  'timestamp': datetime.datetime, 'amount': int}, dialect='fklubDialect')
 
-product_categories_file_handle = open(
-    'fklubdw/FKlubSourceData/product_categories.csv')
+product_categories_file_handle = open('fklubdw/FKlubSourceData/product_categories.csv')
 product_categories_source = TypedCSVSource(product_categories_file_handle,
                                            {'id': int, 'product_id': int,
                                             'category_id': int},
