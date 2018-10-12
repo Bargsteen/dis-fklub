@@ -18,7 +18,7 @@ import time
 import csv
 
 ### Connection ###
-pgconn = psycopg2.connect(database="dis", port=5432)
+pgconn = psycopg2.connect(database="dis", port=5432, user="postgres")
 connection = pygrametl.ConnectionWrapper(pgconn)
 connection.setasdefault()
 connection.execute('set search_path to pygrametlexa')
@@ -168,7 +168,12 @@ fact_table = FactTable(
 
 # TODO
 def fill_product_dimension():
-    pass
+    #id;name;price;active;deactivate_date;quantity;alcohol_content_ml;start_date
+    for srcrow in product_source:
+        dimrow = {'product_id': srcrow['id'], 'name': srcrow['name'], 'price': srcrow['price'],
+                  'alcohol_content_ml': srcrow['alcohol_content_ml'], 
+                  'activate_date': srcrow['start_date'], 'deactivate_date': srcrow['deactivate_date'],
+                  'version': 1, 'valid_from': datetime.date(1970, 1, 1), 'valid_to': None}
 
 # TODO
 # We can fill the time dimension lazily using the rowexpander
@@ -176,7 +181,13 @@ def fill_product_dimension():
 
 # TODO
 def fill_member_dimension():
-    pass
+  #id;active;year;gender;want_spam;balance;undo_count
+    for srcrow in member_source:
+        dimrow = {'member_id': srcrow['id'], 'gender': srcrow['gender'], 
+                  'is_active': srcrow['active'], 'course': "NA", 'version': 1,
+                  'valid_from': datetime.date(1970, 1, 1), 'valid_to': None}
+        
+        member_dimension.insert(dimrow)
 
 
 def fill_store_dimension():
