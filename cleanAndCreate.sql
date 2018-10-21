@@ -76,9 +76,6 @@ CREATE TABLE fct.sale (
     fk_store_id serial NOT NULL,
     fk_member_id serial NOT NULL,
 
-    -- Degenerate dimension
-    order_id serial NOT NULL,
-
     -- Measures
-    item_count int NOT NULL
+    price int NOT NULL
 );

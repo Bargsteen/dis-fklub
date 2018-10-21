@@ -7,6 +7,9 @@
 #     - No user/pass
 #     - Has the necessary schemas. (not necessary if the database cleanup section is finished)
 #       - Run 'psql dis < cleanAndCreate.sql' in the terminal while postgres is runnning.
+#   Python extra dependencies:
+#     - Run in terminal: 'pip3 install pygrametl psycopg2 holidays'
+#
 
 import pygrametl
 from pygrametl.datasources import CSVSource, MergeJoiningSource, TypedCSVSource
@@ -14,6 +17,7 @@ from pygrametl.tables import CachedDimension, SlowlyChangingDimension, FactTable
 import psycopg2
 
 import datetime
+import holidays
 import sys
 import time
 import csv
@@ -103,6 +107,26 @@ sale_source = TypedCSVSource(sale_file_handle,
                              dialect='fklubDialect')
 
 
+# Time lazy loading. Needs to before fct table declaration
+
+dk_holidays = holidays.DK()
+
+def time_rowexpander(row, namemapping):
+    timestamp = pygrametl.getvalue(row, 'timestamp', namemapping)
+    (year, month, day, hour, _, _, weekday, _, _) = \
+        time.strptime(timestamp, "%Y-%m-%d")
+
+    row['t_year'] = year
+    row['t_month'] = month
+    row['t_day'] = day
+    row['t_hour'] = hour
+    row['day_of_week'] = weekday
+    row['is_fall_semester'] = month < 2 or month >= 6
+    row['is_holiday'] = datetime.date(year, month, day) in dk_holidays
+    return row
+
+
+
 ### Dimensions and Facts ###
 
 product_dimension = SlowlyChangingDimension(
@@ -159,7 +183,7 @@ member_dimension = SlowlyChangingDimension(
 fact_table = FactTable(
     name="fct.sale",
     keyrefs=["fk_product_id", "fk_time_id", "fk_store_id", "fk_member_id"],
-    measures=["order_id", "item_count"]
+    measures=["price"]
 )
 
 ### Dimension Filling ###
@@ -172,33 +196,9 @@ def fill_product_dimension():
                   'alcohol_content_ml': srcrow['alcohol_content_ml'], 
                   'activate_date': srcrow['start_date'], 'deactivate_date': srcrow['deactivate_date'],
                   'version': 1, 'valid_from': datetime.date(1970, 1, 1), 'valid_to': None}
-
-# TODO
-# We can fill the time dimension lazily using the rowexpander
-# Look at the datehandling function: https://chrthomsen.github.io/pygrametl/
-def time_rowexpander(row, namemapping):
-    timestamp = pygrametl.getvalue(row, 'timestamp', namemapping)
-    (year, month, day, hour, minute, second, weekday, dayinyear, dst) = \
-        time.strptime(date, "%Y-%m-%d")
-    (isoyear, isoweek, isoweekday) = \
-        datetime.date(year, month, day).isocalendar()
-    
-    row['t_date'] = timestamp # TODO: Maybe just use the date part
-    row['t_year'] = year
-    row['t_month'] = month
-    row['t_day'] = day
-    row['day_of_week'] = weekday
-    row['is_fall_semester'] = month < 2 or month >= 6
-    row['is_holiday'] = False # TODO: Look this up
-
-    row['t_week'] = isoweek
-    row['weekyear'] = isoyear
-    row['dateid'] = dayinyear + 366 * (year - 1990) #Support dates from 1990
-    return row
+        product_dimension.insert(dimrow)
 
 
-
-# TODO
 def fill_member_dimension():
   #id;active;year;gender;want_spam;balance;undo_count
     for srcrow in member_source:
@@ -224,7 +224,14 @@ def fill_store_dimension():
 ### Fact Filling ###
 # TODO
 def fill_fact_table():
-  pass
+  for row in sale_source:
+    # in: id, memberid, product_id, room_id, timestamp, price
+    fctrow = { 'fk_product_id': row['product_id']
+             , 'fk_time_id': time_dimension.ensure(row, {'timestamp':'timestamp'})
+             , 'fk_store_id': row['room_id']
+             , 'fk_member_id': row['member_id']}
+    fact_table.insert(fctrow)
+    
 
 ### Main ###
 
@@ -233,9 +240,10 @@ def main():
     #executeScriptsFromFile('cleanAndCreate.sql')
 
     # Dimension filling
+    
     fill_product_dimension()
     fill_member_dimension()
-    fill_store_dimension()
+    fill_store_dimension()    
 
     # Fact filling
     fill_fact_table()
