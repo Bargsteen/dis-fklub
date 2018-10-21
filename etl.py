@@ -125,8 +125,8 @@ time_dimension = CachedDimension(
     key='time_id',
     attributes=['t_date', 't_year', 't_month', 't_day', 't_hour',
                 'day_of_week', 'is_fall_semester', 'is_holiday'],
-    lookupatts=["t_year", "t_month", "t_day", "t_hour"]
-    #rowexpander=timehandling TODO
+    lookupatts=["t_year", "t_month", "t_day", "t_hour"],
+    rowexpander=time_rowexpander
 )
 
 store_dimension = SlowlyChangingDimension(
@@ -164,8 +164,6 @@ fact_table = FactTable(
 
 ### Dimension Filling ###
 
-# Store
-
 # TODO
 def fill_product_dimension():
     #id;name;price;active;deactivate_date;quantity;alcohol_content_ml;start_date
@@ -178,6 +176,27 @@ def fill_product_dimension():
 # TODO
 # We can fill the time dimension lazily using the rowexpander
 # Look at the datehandling function: https://chrthomsen.github.io/pygrametl/
+def time_rowexpander(row, namemapping):
+    timestamp = pygrametl.getvalue(row, 'timestamp', namemapping)
+    (year, month, day, hour, minute, second, weekday, dayinyear, dst) = \
+        time.strptime(date, "%Y-%m-%d")
+    (isoyear, isoweek, isoweekday) = \
+        datetime.date(year, month, day).isocalendar()
+    
+    row['t_date'] = timestamp # TODO: Maybe just use the date part
+    row['t_year'] = year
+    row['t_month'] = month
+    row['t_day'] = day
+    row['day_of_week'] = weekday
+    row['is_fall_semester'] = month < 2 or month >= 6
+    row['is_holiday'] = False # TODO: Look this up
+
+    row['t_week'] = isoweek
+    row['weekyear'] = isoyear
+    row['dateid'] = dayinyear + 366 * (year - 1990) #Support dates from 1990
+    return row
+
+
 
 # TODO
 def fill_member_dimension():
