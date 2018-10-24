@@ -56,7 +56,7 @@ CREATE TABLE dim.member (
     -- Properties
     gender varchar(1) NOT NULL,
     is_active boolean NOT NULL,
-    course varchar(50),   
+    start_year smallint,
 
     -- Slowly changing dimension fields
     version int NOT NULL,

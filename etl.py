@@ -60,7 +60,7 @@ csv.register_dialect('fklubDialect', delimiter=';', quoting=csv.QUOTE_NONE)
 
 member_file_handle = open('fklubdw/FKlubSourceData/member.csv')
 member_source = TypedCSVSource(member_file_handle,
-                               {'id': int, 'active': bool, 'year': int,
+                               {'id': int, 'active': str, 'year': int,
                                 'gender': str, 'want_spam': bool,
                                 'balance': int, 'undo_count': int},
                                dialect='fklubDialect')
@@ -150,7 +150,7 @@ store_dimension = SlowlyChangingDimension(
 member_dimension = SlowlyChangingDimension(
     name="dim.member",
     key="member_id",
-    attributes=["gender", "is_active", "course",
+    attributes=["gender", "is_active",
                 "version", "valid_from", "valid_to"],
     lookupatts=["member_id"],
     versionatt="version",
@@ -194,9 +194,13 @@ def fill_product_dimension():
 def fill_member_dimension():
   #id;active;year;gender;want_spam;balance;undo_count
     for srcrow in member_source:
-        dimrow = {'member_id': srcrow['id'], 'gender': srcrow['gender'], 
-                  'is_active': srcrow['active'], 'course': "NA", 'version': 1,
-                  'valid_from': datetime.date(1970, 1, 1), 'valid_to': None}
+        dimrow = {'member_id': srcrow['id']
+                 , 'gender': srcrow['gender']
+                 , 'is_active': srcrow['active'] == "t"
+                 , 'start_year' : (srcrow['year'] if srcrow['year'] not in ("", 0) else None)
+                 , 'version': 1
+                 , 'valid_from': datetime.date(1970, 1, 1)
+                 , 'valid_to': None}
         
         member_dimension.insert(dimrow)
 
@@ -237,10 +241,10 @@ def main():
     
     fill_product_dimension()
     fill_member_dimension()
-    fill_store_dimension()    
+    #fill_store_dimension()    
 
     # Fact filling
-    fill_fact_table()
+    #fill_fact_table()
 
     connection.commit()
     connection.close()
