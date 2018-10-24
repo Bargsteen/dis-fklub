@@ -92,6 +92,7 @@ sale_source = CSVSource(sale_file_handle, dialect='fklubDialect')
 
 dk_holidays = holidays.DK()
 
+'''
 def time_rowexpander(row, namemapping):
     timestamp = pygrametl.getvalue(row, 'timestamp', namemapping)
     (year, month, day, hour, _, _, weekday, _, _) = \
@@ -104,8 +105,23 @@ def time_rowexpander(row, namemapping):
     row['day_of_week'] = weekday
     row['is_fall_semester'] = month < 2 or month >= 6
     row['is_holiday'] = datetime.date(year, month, day) in dk_holidays
+    row['t_timestamp'] = datetime.date(year, month, day)
     return row
+'''
+def timestampToTimerow(timestamp):
+    row = dict()
+    (year, month, day, hour, _, _, weekday, _, _) = \
+        time.strptime(timestamp[:19], "%Y-%m-%d %H:%M:%S")
 
+    row['t_year'] = year
+    row['t_month'] = month
+    row['t_day'] = day
+    row['t_hour'] = hour
+    row['day_of_week'] = weekday
+    row['is_fall_semester'] = month < 2 or month >= 6
+    row['is_holiday'] = datetime.date(year, month, day) in dk_holidays
+    row['t_timestamp'] = timestamp
+    return row
 
 
 ### Dimensions and Facts ###
@@ -128,10 +144,10 @@ product_dimension = SlowlyChangingDimension(
 time_dimension = CachedDimension(
     name='dim.time',
     key='time_id',
-    attributes=['t_date', 't_year', 't_month', 't_day', 't_hour',
-                'day_of_week', 'is_fall_semester', 'is_holiday'],
-    lookupatts=["t_year", "t_month", "t_day", "t_hour"],
-    rowexpander=time_rowexpander
+    attributes=['t_year', 't_month', 't_day', 't_hour',
+                'day_of_week', 'is_fall_semester', 'is_holiday', 't_timestamp'],
+    lookupatts=["t_year", "t_month", "t_day", "t_hour"]
+    #rowexpander=time_rowexpander
 )
 
 store_dimension = SlowlyChangingDimension(
@@ -150,7 +166,7 @@ store_dimension = SlowlyChangingDimension(
 member_dimension = SlowlyChangingDimension(
     name="dim.member",
     key="member_id",
-    attributes=["gender", "is_active",
+    attributes=["gender", "is_active", "start_year",
                 "version", "valid_from", "valid_to"],
     lookupatts=["member_id"],
     versionatt="version",
@@ -168,8 +184,6 @@ fact_table = FactTable(
 )
 
 ### Dimension Filling ###
-
-# TODO
 def fill_product_dimension():
     #id;name;price;active;deactivate_date;quantity;alcohol_content_ml;start_date
     for srcrow in product_source:
@@ -189,8 +203,6 @@ def fill_product_dimension():
             print(dimrow)
             raise
 
-
-
 def fill_member_dimension():
   #id;active;year;gender;want_spam;balance;undo_count
     for srcrow in member_source:
@@ -204,7 +216,6 @@ def fill_member_dimension():
         
         member_dimension.insert(dimrow)
 
-
 def fill_store_dimension():
     for srcrow in store_source:
         # in: id, name, description
@@ -216,20 +227,23 @@ def fill_store_dimension():
         # out: name, description, version, valid_from, valid_to=null
         store_dimension.insert(dimrow)
 
-
 ### Fact Filling ###
-# TODO
 def fill_fact_table():
   for row in sale_source:
       #productId = 
     # in: id, memberid, product_id, room_id, timestamp, price
-    fctrow = { 'fk_product_id': row['product_id']
-              , 'fk_time_id': time_dimension.ensure(row, {'timestamp':'timestamp'})
-              , 'fk_store_id': row['room_id']
-              , 'fk_member_id': row['member_id']}
-    #print(row)
-    fact_table.insert(fctrow)
-    
+    try:
+      timerow = timestampToTimerow(row['timestamp'])
+      fctrow = { 'fk_product_id': row['product_id']
+                , 'fk_time_id': time_dimension.ensure(timerow)
+                , 'fk_store_id': row['room_id'] 
+                , 'fk_member_id': row['member_id']
+                , 'price': row['price']}
+      #print(row)
+      fact_table.insert(fctrow)
+    except:
+      print(row)
+      raise
 
 ### Main ###
 
@@ -241,10 +255,10 @@ def main():
     
     fill_product_dimension()
     fill_member_dimension()
-    #fill_store_dimension()    
+    fill_store_dimension()    
 
     # Fact filling
-    #fill_fact_table()
+    fill_fact_table()
 
     connection.commit()
     connection.close()

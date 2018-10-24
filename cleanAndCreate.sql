@@ -28,13 +28,14 @@ CREATE TABLE dim.time(
     time_id serial PRIMARY KEY,
 
     -- Properties
-    t_year int NOT NULL,
-    t_month int NOT NULL,
-    t_day int NOT NULL,
-    t_hour int NOT NULL,
-    day_of_week int NOT NULL,
-    is_fall_semester BOOLEAN NOT NULL,
-    is_holiday BOOLEAN NOT NULL
+    t_year int,
+    t_month int,
+    t_day int,
+    t_hour int,
+    day_of_week int,
+    is_fall_semester BOOLEAN,
+    is_holiday BOOLEAN,
+    t_timestamp timestamp
 );
 
 CREATE TABLE dim.store (
