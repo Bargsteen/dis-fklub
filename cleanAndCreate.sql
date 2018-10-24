@@ -11,11 +11,8 @@ CREATE TABLE dim.product (
 
     -- Properties
     name varchar(50) NOT NULL,
-    category varchar(50) NOT NULL,
-    price decimal (5,
-        2) NOT NULL,
-    alcohol_content_ml decimal (2,
-        2) NOT NULL,
+    price int NOT NULL,
+    alcohol_content_ml decimal NOT NULL,
 
     -- When it is available for purchase
     activate_date date NOT NULL,

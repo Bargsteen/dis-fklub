@@ -21,6 +21,7 @@ import holidays
 import sys
 import time
 import csv
+import re
 
 ### Connection ###
 pgconn = psycopg2.connect(database="dis", port=5432, user="postgres", host="localhost")
@@ -57,11 +58,6 @@ def executeScriptsFromFile(filename):
 
 csv.register_dialect('fklubDialect', delimiter=';', quoting=csv.QUOTE_NONE)
 
-category_file_handle = open('fklubdw/FKlubSourceData/category.csv')
-category_source = TypedCSVSource(category_file_handle,
-                                 {'id': int, 'name': str},
-                                 dialect='fklubDialect')
-
 member_file_handle = open('fklubdw/FKlubSourceData/member.csv')
 member_source = TypedCSVSource(member_file_handle,
                                {'id': int, 'active': bool, 'year': int,
@@ -80,19 +76,8 @@ payment_source = TypedCSVSource(payment_file_handle,
                                 {'id': int, 'member_id': int,
                                  'timestamp': datetime.datetime, 'amount': int}, dialect='fklubDialect')
 
-product_categories_file_handle = open('fklubdw/FKlubSourceData/product_categories.csv')
-product_categories_source = TypedCSVSource(product_categories_file_handle,
-                                           {'id': int, 'product_id': int,
-                                            'category_id': int},
-                                           dialect='fklubDialect')
-
 product_file_handle = open('fklubdw/FKlubSourceData/product.csv')
-product_source = TypedCSVSource(product_file_handle,
-                                {'id': int, 'name': str, 'price': int,
-                                 'active': bool, 'deactivate_date': datetime.datetime,
-                                 'quantity': int, 'alcohol_content_ml': float,
-                                 'start_date': datetime.datetime},
-                                dialect='fklubDialect')
+product_source = CSVSource(product_file_handle, dialect='fklubDialect')
 
 store_file_handle = open('fklubdw/FKlubSourceData/room.csv')
 store_source = TypedCSVSource(store_file_handle,
@@ -100,11 +85,7 @@ store_source = TypedCSVSource(store_file_handle,
                               dialect='fklubDialect')
 
 sale_file_handle = open('fklubdw/FKlubSourceData/sale.csv')
-sale_source = TypedCSVSource(sale_file_handle,
-                             {'id': str, 'member_id': int,
-                              'product_id': int, 'room_id': int,
-                              'timestamp': datetime.datetime, 'price': int},
-                             dialect='fklubDialect')
+sale_source = CSVSource(sale_file_handle, dialect='fklubDialect')
 
 
 # Time lazy loading. Needs to before fct table declaration
@@ -132,7 +113,7 @@ def time_rowexpander(row, namemapping):
 product_dimension = SlowlyChangingDimension(
     name="dim.product",
     key="product_id",
-    attributes=["name", "category", "price", "alcohol_content_ml",
+    attributes=["name", "price", "alcohol_content_ml",
                 "activate_date", "deactivate_date", "version",
                 "valid_from", "valid_to"],
     lookupatts=["name"],
@@ -192,11 +173,22 @@ fact_table = FactTable(
 def fill_product_dimension():
     #id;name;price;active;deactivate_date;quantity;alcohol_content_ml;start_date
     for srcrow in product_source:
-        dimrow = {'product_id': srcrow['id'], 'name': srcrow['name'], 'price': srcrow['price'],
-                  'alcohol_content_ml': srcrow['alcohol_content_ml'], 
-                  'activate_date': srcrow['start_date'], 'deactivate_date': srcrow['deactivate_date'],
-                  'version': 1, 'valid_from': datetime.date(1970, 1, 1), 'valid_to': None}
-        product_dimension.insert(dimrow)
+        try:
+            dimrow = {'product_id': srcrow['id']
+                    , 'name': re.sub('<[^<]+?>', '', srcrow['name']).strip() # Remove HTML tags
+                    , 'price': srcrow['price']
+                    , 'alcohol_content_ml': (srcrow['alcohol_content_ml'] if srcrow['alcohol_content_ml'] != "" else 0.0)
+                    , 'activate_date': (srcrow['start_date'] if srcrow['start_date'] != "" else datetime.date(1970, 1, 1))
+                    , 'deactivate_date': (srcrow['deactivate_date'] if srcrow['start_date'] != "" else None)
+                    , 'version': 1
+                    , 'valid_from': datetime.date(1970, 1, 1)
+                    , 'valid_to': None}
+            product_dimension.insert(dimrow)
+        except:
+            print(srcrow)
+            print(dimrow)
+            raise
+
 
 
 def fill_member_dimension():
@@ -225,11 +217,13 @@ def fill_store_dimension():
 # TODO
 def fill_fact_table():
   for row in sale_source:
+      #productId = 
     # in: id, memberid, product_id, room_id, timestamp, price
     fctrow = { 'fk_product_id': row['product_id']
-             , 'fk_time_id': time_dimension.ensure(row, {'timestamp':'timestamp'})
-             , 'fk_store_id': row['room_id']
-             , 'fk_member_id': row['member_id']}
+              , 'fk_time_id': time_dimension.ensure(row, {'timestamp':'timestamp'})
+              , 'fk_store_id': row['room_id']
+              , 'fk_member_id': row['member_id']}
+    #print(row)
     fact_table.insert(fctrow)
     
 
