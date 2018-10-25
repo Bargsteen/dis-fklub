@@ -1,0 +1,54 @@
+<?xml version="1.0"?>
+<Schema name="FKlubDW">
+	<Cube name="Sales">
+	    <Table name="fct" />
+<!-- 		<Dimension name="Date" type="TimeDimension" foreignKey="date_id">
+            <Hierarchy hasAll="true" allMemberName="All dates" primaryKey="date_id">
+                <Table name="date"/>
+                    <Level name="Year" column="year" levelType="TimeYears" type="Integer"/>
+                    <Level name="Quarter" column="quarter" levelType="TimeQuarters" type="Integer"/>
+                    <Level name="Month" column="month" levelType="TimeMonths" type="Integer"/>
+                    <Level name="Day" column="day" levelType="TimeDays" type="Integer"/>
+                        <Property name="Summerholiday" column="is_summer_holiday" type="Boolean" dependsOnLevelValue="true"/>
+                        <Property name="Holiday" column="is_holiday" type="Boolean" dependsOnLevelValue="true"/>
+                        <Property name="Weekday" column="weekday" type="String" dependsOnLevelValue="true"/>
+            </Hierarchy>
+        </Dimension>
+        
+		<Dimension name="Time" foreignKey="time_id">
+            <Hierarchy hasAll="true" allMemberName="All time" primaryKey="time_id">
+                <Table name="time"/>
+                    <Level name="Hour" column="hour" type="Integer"/>
+                    <Level name="Minute" column="minute" type="Integer"/>
+                    <Level name="Second" column="second" type="Integer"/>
+                        <Property name="Before noon" column="before_noon" type="Boolean" dependsOnLevelValue="true"/>
+            </Hierarchy>
+        </Dimension> -->
+        
+        <Dimension name="Product" foreignKey="fk_product_id">
+            <Hierarchy hasAll="true" allMemberName="All products" primaryKey="product_id">
+                <Table name="product"/>
+                    <Level name="Category" column="category" type="String"/>
+                    <Level name="Alcohol content" column="alcohol_content_ml" type="Numeric"/>
+                    <Level name="Product" column="name" type="String"/>
+                        <Property name="Price" column="price" type="Numeric" dependsOnLevelValue="true"/>
+            </Hierarchy>
+        </Dimension>
+        
+<!-- 
+        <Dimension name="Member" foreignKey="fk_member_id">
+            <Hierarchy hasAll="true" allMemberName="All members" primaryKey="member_id">
+                <Table name="member"/>
+                    <Level name="Category" column="category" type="String"/>
+                    <Level name="Alcohol content" column="alcohol_content_ml" type="Numeric"/>
+                    <Level name="Product" column="name" type="String"/>
+                        <Property name="Price" column="price" type="Numeric" dependsOnLevelValue="true"/>
+            </Hierarchy>
+        </Dimension>
+         -->
+
+		<Measure name="Unit Sales" column="price" aggregator="count" formatString="#,###"/>
+	</Cube>
+ </Schema>
+
+ <!-- Define your cube incl. its dimensions and measures here. See FoodMart.xml for an example and http://mondrian.pentaho.com/documentation/schema.php for documentation -->
