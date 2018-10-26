@@ -13,7 +13,7 @@
 
 import pygrametl
 from pygrametl.datasources import CSVSource, MergeJoiningSource, TypedCSVSource
-from pygrametl.tables import CachedDimension, SlowlyChangingDimension, FactTable
+from pygrametl.tables import CachedDimension, SlowlyChangingDimension, BulkFactTable
 import psycopg2
 
 import datetime
@@ -108,6 +108,16 @@ def time_rowexpander(row, namemapping):
     row['t_timestamp'] = datetime.date(year, month, day)
     return row
 '''
+def pgcopybulkloader(name, atts, fieldsep, rowsep, nullval, filehandle):
+    # Here we use driver-specific code to get fast bulk loading.
+    # You can change this method if you use another driver or you can
+    # use the FactTable or BatchFactTable classes (which don't require
+    # use of driver-specifc code) instead of the BulkFactTable class.
+    global connection
+    curs = connection.cursor()
+    curs.copy_from(file=filehandle, table=name, sep=fieldsep,
+                   null=str(nullval), columns=atts)
+
 def timestampToTimerow(timestamp):
     row = dict()
     (year, month, day, hour, _, _, weekday, _, _) = \
@@ -177,10 +187,11 @@ member_dimension = SlowlyChangingDimension(
 )
 
 # TODO: Use BulkFactTable or BatchFactTable
-fact_table = FactTable(
+fact_table = BulkFactTable(
     name="fct.sale",
     keyrefs=["fk_product_id", "fk_time_id", "fk_store_id", "fk_member_id"],
-    measures=["price"]
+    measures=["price"],
+    bulkloader=pgcopybulkloader
 )
 
 ### Dimension Filling ###
@@ -253,11 +264,15 @@ def main():
 
     # Dimension filling
     
+    print("Product")
     fill_product_dimension()
+    print("Member")
     fill_member_dimension()
+    print("Store")
     fill_store_dimension()    
 
     # Fact filling
+    print("Fact")
     fill_fact_table()
 
     connection.commit()
